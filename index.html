@@ -415,8 +415,9 @@
                     });
 
                     // ساخت درخواست برای OpenAI API
+                    // استفاده از gpt-3.5-turbo برای سازگاری بیشتر (یا gpt-4o اگر در دسترس باشد)
                     const payload = {
-                        model: "gpt-4o", // استفاده از مدل GPT-4o (بهترین مدل)
+                        model: "gpt-3.5-turbo", // استفاده از مدل GPT-3.5-turbo (سازگارتر و ارزان‌تر)
                         messages: [
                             {
                                 role: "system",
@@ -425,7 +426,7 @@
                             ...messageHistory
                         ],
                         temperature: 0.7,
-                        max_tokens: 4000,
+                        max_tokens: 2000,
                         stream: false
                     };
 
@@ -445,6 +446,12 @@
                         ];
                     }
 
+                    console.log('ارسال درخواست به OpenAI...', { 
+                        url: OPENAI_API_URL, 
+                        model: payload.model,
+                        messagesCount: payload.messages.length 
+                    });
+
                     const response = await fetch(OPENAI_API_URL, {
                         method: 'POST',
                         headers: {
@@ -454,14 +461,23 @@
                         body: JSON.stringify(payload)
                     });
 
+                    console.log('وضعیت پاسخ:', response.status, response.statusText);
+
                     // بررسی وضعیت پاسخ
                     if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
+                        let errorData;
+                        try {
+                            errorData = await response.json();
+                            console.error('خطای API:', errorData);
+                        } catch (e) {
+                            errorData = { error: { message: `خطای HTTP: ${response.status} ${response.statusText}` } };
+                        }
                         const errorMessage = errorData.error?.message || `خطای HTTP: ${response.status}`;
                         throw new Error(errorMessage);
                     }
 
                     const data = await response.json();
+                    console.log('پاسخ دریافت شد:', data);
 
                     // بررسی خطا در پاسخ
                     if (data.error) {
@@ -495,16 +511,21 @@
                     }
 
                 } catch (error) {
+                    console.error('═══════════════════════════════════════');
                     console.error('خطای کامل:', error);
                     console.error('پیام خطا:', error.message);
+                    console.error('نوع خطا:', error.name);
                     console.error('Stack:', error.stack);
+                    console.error('═══════════════════════════════════════');
                     
                     let errorMessage = '❌ خطا در ارتباط با سرور';
                     
                     // بررسی انواع خطاها
-                    const errorMsg = error.message || error.toString();
+                    const errorMsg = (error.message || error.toString()).toLowerCase();
                     
-                    if (errorMsg.includes('API_KEY') || errorMsg.includes('expired') || errorMsg.includes('invalid') || errorMsg.includes('401') || errorMsg.includes('403') || errorMsg.includes('Incorrect API key')) {
+                    if (errorMsg.includes('api_key') || errorMsg.includes('expired') || errorMsg.includes('invalid') || 
+                        errorMsg.includes('401') || errorMsg.includes('403') || errorMsg.includes('incorrect api key') ||
+                        errorMsg.includes('unauthorized') || errorMsg.includes('authentication')) {
                         setApiError(true);
                         errorMessage = `❌ **کلید API مشکل دارد!**
 
@@ -533,14 +554,16 @@
 ✅ **تمام!**
 
 💡 **نکته:** OpenAI API نیاز به شارژ دارد (اما سهمیه رایگان هم می‌دهد)`;
-                    } else if (errorMsg.includes('quota') || errorMsg.includes('429')) {
-                        errorMessage = '❌ سهمیه API تمام شده است.\n\n💡 راه‌حل:\n- چند دقیقه صبر کن\n- یا کلید API جدید دریافت کن';
-                    } else if (errorMsg.includes('network') || errorMsg.includes('Failed to fetch')) {
-                        errorMessage = '❌ مشکل در اتصال به اینترنت.\n\nلطفاً:\n- اتصال اینترنت را چک کن\n- VPN را خاموش کن (اگر روشن است)\n- دوباره تلاش کن';
-                    } else if (errorMsg.includes('400')) {
-                        errorMessage = `❌ درخواست نامعتبر است.\n\nخطا: ${errorMsg}\n\nلطفاً:\n- پیام خود را ساده‌تر کن\n- یا دوباره تلاش کن`;
+                    } else if (errorMsg.includes('quota') || errorMsg.includes('429') || errorMsg.includes('rate limit')) {
+                        errorMessage = '❌ سهمیه API تمام شده یا Rate Limit رسیده است.\n\n💡 راه‌حل:\n- چند دقیقه صبر کن\n- یا در داشبورد OpenAI بررسی کن: https://platform.openai.com/usage\n- یا کلید API جدید دریافت کن';
+                    } else if (errorMsg.includes('network') || errorMsg.includes('failed to fetch') || errorMsg.includes('cors')) {
+                        errorMessage = '❌ مشکل در اتصال به اینترنت یا CORS.\n\nلطفاً:\n- اتصال اینترنت را چک کن\n- VPN را خاموش کن (اگر روشن است)\n- فایروال را بررسی کن\n- دوباره تلاش کن';
+                    } else if (errorMsg.includes('400') || errorMsg.includes('bad request')) {
+                        errorMessage = `❌ درخواست نامعتبر است.\n\nخطا: ${error.message}\n\n💡 راه‌حل:\n- پیام خود را ساده‌تر کن\n- یا دوباره تلاش کن\n\n🔍 برای اطلاعات بیشتر، Console را باز کن (F12)`;
+                    } else if (errorMsg.includes('model') || errorMsg.includes('not found')) {
+                        errorMessage = `❌ مدل در دسترس نیست.\n\n💡 راه‌حل:\n- مدل به gpt-3.5-turbo تغییر داده شد\n- دوباره تلاش کن\n- یا در داشبورد OpenAI بررسی کن`;
                     } else {
-                        errorMessage = `❌ خطا: ${errorMsg}\n\n🔧 **راه‌حل‌ها:**\n1. صفحه را Refresh کن (F5)\n2. کلید API را بررسی کن\n3. اتصال اینترنت را چک کن\n4. Console مرورگر را باز کن (F12) و خطاها را ببین\n\n🔑 کلید جدید: https://makersuite.google.com/app/apikey`;
+                        errorMessage = `❌ خطا: ${error.message}\n\n🔧 **راه‌حل‌ها:**\n1. Console مرورگر را باز کن (F12) و خطاها را ببین\n2. صفحه را Hard Refresh کن (Ctrl+F5)\n3. کلید API را بررسی کن: https://platform.openai.com/api-keys\n4. اتصال اینترنت را چک کن\n5. داشبورد OpenAI را بررسی کن: https://platform.openai.com/usage\n\n📋 **اطلاعات خطا:**\n${error.message}\n\nاگر مشکل ادامه داشت، خطای کامل را از Console کپی کن و به من بفرست.`;
                     }
 
                     setMessages(prev => [...prev, { 
