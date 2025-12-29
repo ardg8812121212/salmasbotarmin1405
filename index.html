@@ -190,7 +190,7 @@
         // 🔑 کلید API گوگل Gemini
         // این کلید را از Google AI Studio دریافت کنید: https://makersuite.google.com/app/apikey
         // ==========================================
-        const API_KEY = "AIzaSyCOJuA00X4adLNck8r3YjuJxB8AgrpfOqk";
+        const API_KEY = "AIzaSyCJcY2P_bSWkv3RhYDCCd50Ii4FJfJSZCY";
         
         // آدرس وب‌سایت شما برای اتصال
         const WEBSITE_URL = "https://arminsalmascomputer.wuaze.com/index.php";
@@ -310,6 +310,7 @@
             const [image, setImage] = useState(null);
             const [uploadedFile, setUploadedFile] = useState(null);
             const [showFeatures, setShowFeatures] = useState(false);
+            const [apiError, setApiError] = useState(false);
             const scrollRef = useRef(null);
             const fileRef = useRef(null);
             const fileInputRef = useRef(null);
@@ -419,13 +420,25 @@
                         }
                     );
 
+                    // بررسی وضعیت پاسخ
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error?.message || `خطای HTTP: ${response.status}`);
+                    }
+
                     const data = await response.json();
 
+                    // بررسی خطا در پاسخ
                     if (data.error) {
                         throw new Error(data.error.message || 'خطا در ارتباط با API');
                     }
 
-                    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+                    // بررسی وجود پاسخ
+                    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                        throw new Error('پاسخی از API دریافت نشد');
+                    }
+
+                    const aiText = data.candidates[0].content.parts[0].text || 
                                   "متأسفانه پاسخی دریافت نشد. لطفاً دوباره تلاش کنید.";
 
                     setMessages(prev => [...prev, { role: 'model', text: aiText }]);
@@ -447,17 +460,42 @@
                     }
 
                 } catch (error) {
-                    console.error('خطا:', error);
+                    console.error('خطای کامل:', error);
+                    console.error('پیام خطا:', error.message);
+                    console.error('Stack:', error.stack);
+                    
                     let errorMessage = '❌ خطا در ارتباط با سرور';
                     
-                    if (error.message.includes('API_KEY')) {
-                        errorMessage = '❌ کلید API نامعتبر است. لطفاً کلید خود را بررسی کنید.';
-                    } else if (error.message.includes('quota')) {
-                        errorMessage = '❌ سهمیه API تمام شده است. لطفاً بعداً تلاش کنید.';
-                    } else if (error.message.includes('network')) {
-                        errorMessage = '❌ مشکل در اتصال به اینترنت. لطفاً اتصال خود را بررسی کنید.';
+                    // بررسی انواع خطاها
+                    const errorMsg = error.message || error.toString();
+                    
+                    if (errorMsg.includes('API_KEY') || errorMsg.includes('expired') || errorMsg.includes('invalid') || errorMsg.includes('403')) {
+                        setApiError(true);
+                        errorMessage = `❌ **کلید API مشکل دارد!**
+
+🔑 **راهنمای دریافت کلید جدید:**
+
+**1.** برو به: https://makersuite.google.com/app/apikey
+**2.** با Google وارد شو
+**3.** "Create API Key" را بزن
+**4.** کلید را کپی کن
+**5.** در خط 193 فایل index.html قرار بده
+**6.** ذخیره کن (Ctrl+S) و Refresh کن (F5)
+
+✅ **کلید فعلی شما:** \`${API_KEY.substring(0, 20)}...\`
+
+💡 اگر کلید را تازه دریافت کردی و باز هم خطا می‌دهد:
+- مطمئن شو کلید را کامل کپی کرده‌ای
+- فاصله اضافی در ابتدا یا انتها نباشد
+- از علامت‌های نقل قول استفاده کن: "کلید"`;
+                    } else if (errorMsg.includes('quota') || errorMsg.includes('429')) {
+                        errorMessage = '❌ سهمیه API تمام شده است.\n\n💡 راه‌حل:\n- چند دقیقه صبر کن\n- یا کلید API جدید دریافت کن';
+                    } else if (errorMsg.includes('network') || errorMsg.includes('Failed to fetch')) {
+                        errorMessage = '❌ مشکل در اتصال به اینترنت.\n\nلطفاً:\n- اتصال اینترنت را چک کن\n- VPN را خاموش کن (اگر روشن است)\n- دوباره تلاش کن';
+                    } else if (errorMsg.includes('400')) {
+                        errorMessage = `❌ درخواست نامعتبر است.\n\nخطا: ${errorMsg}\n\nلطفاً:\n- پیام خود را ساده‌تر کن\n- یا دوباره تلاش کن`;
                     } else {
-                        errorMessage = `❌ خطا: ${error.message}\n\nراه‌حل‌های ممکن:\n1. کلید API را بررسی کنید\n2. اتصال اینترنت را چک کنید\n3. بعداً دوباره تلاش کنید`;
+                        errorMessage = `❌ خطا: ${errorMsg}\n\n🔧 **راه‌حل‌ها:**\n1. صفحه را Refresh کن (F5)\n2. کلید API را بررسی کن\n3. اتصال اینترنت را چک کن\n4. Console مرورگر را باز کن (F12) و خطاها را ببین\n\n🔑 کلید جدید: https://makersuite.google.com/app/apikey`;
                     }
 
                     setMessages(prev => [...prev, { 
@@ -466,6 +504,11 @@
                     }]);
                 } finally {
                     setLoading(false);
+                }
+                
+                // اگر خطا برطرف شد، پیام خطا را پاک کن
+                if (!error.message.includes('API_KEY') && !error.message.includes('expired') && !error.message.includes('invalid')) {
+                    setApiError(false);
                 }
             };
 
@@ -481,6 +524,40 @@
 
             return (
                 <div className="flex flex-col h-screen max-w-md mx-auto md:max-w-4xl lg:max-w-6xl bg-white md:shadow-2xl md:my-4 md:rounded-2xl overflow-hidden">
+                    {/* API Error Banner */}
+                    {apiError && (
+                        <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b-2 border-red-300 p-4">
+                            <div className="flex items-start gap-3">
+                                <div className="text-red-600 text-2xl">⚠️</div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-red-800 mb-2">کلید API منقضی شده است!</h3>
+                                    <p className="text-sm text-red-700 mb-3">
+                                        برای استفاده از ربات، باید کلید API جدید دریافت کنید. این کار فقط 2 دقیقه زمان می‌برد و کاملاً رایگان است.
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <a 
+                                            href="https://makersuite.google.com/app/apikey" 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2"
+                                        >
+                                            🔑 دریافت کلید API جدید
+                                        </a>
+                                        <button
+                                            onClick={() => setApiError(false)}
+                                            className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                        >
+                                            بستن
+                                        </button>
+                                    </div>
+                                    <div className="mt-3 text-xs text-red-600 bg-white/50 p-2 rounded border border-red-200">
+                                        <strong>راهنمای سریع:</strong> بعد از دریافت کلید، آن را در <strong>خط 193</strong> فایل index.html قرار دهید و صفحه را Refresh کنید.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
                     {/* Header */}
                     <header className="glass p-4 flex items-center justify-between z-10 sticky top-0 border-b border-slate-200">
                         <div className="flex items-center gap-3">
