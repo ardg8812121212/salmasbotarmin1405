@@ -471,23 +471,37 @@
                     
                     if (errorMsg.includes('API_KEY') || errorMsg.includes('expired') || errorMsg.includes('invalid') || errorMsg.includes('403')) {
                         setApiError(true);
-                        errorMessage = `❌ **کلید API مشکل دارد!**
+                        errorMessage = `❌ **کلید API منقضی شده است!**
 
-🔑 **راهنمای دریافت کلید جدید:**
+🔑 **برای دریافت کلید جدید (خیلی ساده):**
 
-**1.** برو به: https://makersuite.google.com/app/apikey
-**2.** با Google وارد شو
-**3.** "Create API Key" را بزن
-**4.** کلید را کپی کن
-**5.** در خط 193 فایل index.html قرار بده
-**6.** ذخیره کن (Ctrl+S) و Refresh کن (F5)
+**مرحله 1:** روی لینک زیر کلیک کن:
+👉 https://makersuite.google.com/app/apikey
 
-✅ **کلید فعلی شما:** \`${API_KEY.substring(0, 20)}...\`
+**مرحله 2:** با Google وارد شو
 
-💡 اگر کلید را تازه دریافت کردی و باز هم خطا می‌دهد:
-- مطمئن شو کلید را کامل کپی کرده‌ای
-- فاصله اضافی در ابتدا یا انتها نباشد
-- از علامت‌های نقل قول استفاده کن: "کلید"`;
+**مرحله 3:** "Create API Key" یا "Regenerate API Key" را بزن
+
+**مرحله 4:** کلید جدید را کپی کن
+
+**مرحله 5:** فایل index.html را باز کن و به **خط 193** برو
+
+**مرحله 6:** این خط را پیدا کن:
+\`\`\`javascript
+const API_KEY = "AIzaSyCJcY2P_bSWkv3RhYDCCd50Ii4FJfJSZCY";
+\`\`\`
+
+**مرحله 7:** کلید قدیمی را پاک کن و کلید جدید را بگذار
+
+**مرحله 8:** ذخیره کن (Ctrl+S)
+
+**مرحله 9:** در GitHub آپلود کن (فایل آپلود-در-GitHub.md را ببین)
+
+**مرحله 10:** صفحه را Refresh کن (Ctrl+F5)
+
+✅ **تمام!**
+
+💡 **نکته:** کلید API کاملاً رایگان است و فقط 2 دقیقه زمان می‌برد!`;
                     } else if (errorMsg.includes('quota') || errorMsg.includes('429')) {
                         errorMessage = '❌ سهمیه API تمام شده است.\n\n💡 راه‌حل:\n- چند دقیقه صبر کن\n- یا کلید API جدید دریافت کن';
                     } else if (errorMsg.includes('network') || errorMsg.includes('Failed to fetch')) {
